@@ -1,0 +1,127 @@
+---
+output: github_document
+---
+
+<!-- README.md is generated from README.Rmd. Please edit that file -->
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+# A test repo to generate MVT from estatapi
+
+## Get data
+
+### Polygon data
+
+Download `N03-200101_GML.zip` from <https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N03-v2_4.html>.
+
+### Statistic data
+
+```{r eval=!file.exists("data_raw/0001803721.parquet")}
+# Set API key of e-Stat API on ESTATAPI_KEY envvar
+d <- estatapi::estat_getStatsData(Sys.getenv("ESTATAPI_KEY"), "0001803721")
+arrow::write_parquet(d, "data_raw/0001803721.parquet")
+```
+
+## Process data
+
+```{r kokudosuuchi_data}
+library(dplyr, warn.conflicts = FALSE)
+
+adm <- kokudosuuchi::getKSJData("data_raw/N03-200101_GML.zip")
+
+# We only need area_code to join
+g <- adm$`N03-20_200101` %>% 
+  group_by(area_code = N03_007) %>% 
+  summarise() %>% 
+  mutate(area = sf::st_area(geometry))
+g
+```
+
+```{r estat_data}
+d <- arrow::read_parquet("data_raw/0001803721.parquet")
+
+colnames(d) <- c(
+  "category_code",
+  "category_name",
+  "plant_code",
+  "plant_name",
+  "area_code",
+  "area_name",
+  "unit",
+  "value",
+  "annotation"
+)
+
+d
+```
+
+```{r reduce_data}
+d <- d %>%
+  filter(!is.na(value)) %>% 
+  # convert ha to m^2
+  mutate(value = if_else(unit == "ha", value * 10000, value))
+```
+
+```{r wider_data}
+d_wide <- d %>%
+  select(category_name, plant_code, area_code, value) %>% 
+  tidyr::pivot_wider(names_from = category_name, values_from = value)
+d_wide
+```
+
+TODO: There are some area codes that cannot be joined.
+
+```{r check_data}
+d_distinct <- distinct(d, area_code, area_name)
+
+anti_join(d_distinct, g, by = "area_code")
+
+# This is because the geometry is more detailed.
+adm$`N03-20_200101` %>%
+  filter(N03_003 == "新潟市")
+```
+
+
+```{r join}
+d_joined <- d_wide %>%
+  inner_join(g, ., by = "area_code") %>% 
+  mutate(
+    harvest_per_planted_area = 収穫量 / 作付面積,
+    across(作付面積:出荷量, ~ . / as.numeric(area))
+  )
+d_joined
+```
+
+```{r split}
+l <- d_joined %>% 
+  split(.$plant_code)
+```
+
+
+```{r write}
+unlink("data", recursive = TRUE)
+dir.create("data")
+
+purrr::iwalk(l, function(data, nm) {
+  data <- data %>% 
+    select(-plant_code, -area_code)
+  
+  write_sf(
+    data,
+    dsn = file.path("data", nm), 
+    layer = nm,
+    driver = "MVT",
+    dataset_options = c(
+      "MINZOOM=4",
+      "MAXZOOM=9",
+      "TILE_EXTENSION=mvt",
+      "COMPRESS=NO"
+    )
+  )
+})
+```
