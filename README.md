@@ -4,6 +4,20 @@
 A test repo to generate MVT from estatapi
 =========================================
 
+出典
+----
+
+### データ
+
+* 国土数値情報 行政区域データ（<https://nlftp.mlit.go.jp/ksj/gml/datalist/KsjTmplt-N03-v2_4.html>）
+* e-Stat 作物統計調査 / 市町村別データ 平成30年産市町村別データ (<https://www.e-stat.go.jp/dbview?sid=0001803721>)
+
+を加工して作成
+
+### ベースの地図
+
+<a href="https://maps.gsi.go.jp/vector/" target="_blank">地理院地図Vector（仮称）</a>提供のベクトルタイルを、<https://github.com/gsi-cyberjapan/gsivectortile-mapbox-gl-js>の`std.json`を使用して表示。
+
 Get data
 --------
 

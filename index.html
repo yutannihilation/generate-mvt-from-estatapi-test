@@ -25,8 +25,8 @@
 <body>
     <div id="map"></div>
     <script>
-        // var baseURL = 'https://yutannihilation.github.io/generate-mvt-by-sf-test';
-        var baseURL = 'http://localhost:8000'
+        var baseURL = 'https://yutannihilation.github.io/generate-mvt-by-sf-test';
+        // var baseURL = 'http://localhost:8000'
 
         var map = new mapboxgl.Map({
             container: 'map',
@@ -61,9 +61,9 @@
                             'interpolate',
                             ['linear'],
                             ['get', 'harvest_per_planted_area'],
-                            0,
+                            0.0007,
                             'rgb(255,200,200)',
-                            0.000413,
+                            0.00437,
                             'rgb(103,0,27)'
                         ],
                         'fill-opacity': 0.8
